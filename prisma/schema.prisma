@@ -1,0 +1,292 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  MANAGER
+  EMPLOYEE
+}
+
+enum MovementType {
+  PURCHASE
+  SALE
+  MANUAL_ADJUSTMENT
+  TRANSFER_OUT
+  TRANSFER_IN
+  CAFE_SALE
+}
+
+model User {
+  id           Int             @id @default(autoincrement())
+  username     String          @unique @db.VarChar(120)
+  passwordHash String
+  role         Role            @default(OWNER)
+  active       Boolean         @default(true)
+  createdAt    DateTime        @default(now()) @db.Timestamptz(3)
+  sessions     Session[]
+  purchases    Purchase[]
+  sales        Sale[]
+  movements    StockMovement[]
+  audits       AuditLog[]
+  commands     Command[]
+
+  @@map("users")
+}
+
+model Session {
+  id        Int      @id @default(autoincrement())
+  tokenHash String   @unique @db.Char(64)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+model Category {
+  id        Int             @id @default(autoincrement())
+  name      String          @unique @db.VarChar(120)
+  items     InventoryItem[]
+  createdAt DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@map("inventory_categories")
+}
+
+model Supplier {
+  id        Int             @id @default(autoincrement())
+  name      String          @unique @db.VarChar(160)
+  items     InventoryItem[]
+  purchases Purchase[]
+  createdAt DateTime        @default(now()) @db.Timestamptz(3)
+
+  @@map("suppliers")
+}
+
+model InventoryItem {
+  id              Int             @id @default(autoincrement())
+  name            String          @db.VarChar(160)
+  categoryId      Int?
+  category        Category?       @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  supplierId      Int?
+  supplier        Supplier?       @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  unit            String          @db.VarChar(20)
+  currentQuantity Decimal         @default(0) @db.Decimal(16, 3)
+  cafeQuantity    Decimal         @default(0) @db.Decimal(16, 3)
+  warehouseCost   Decimal?        @db.Decimal(18, 6)
+  cafeCost        Decimal?        @db.Decimal(18, 6)
+  sellable        Boolean         @default(false)
+  minimumQuantity Decimal         @default(0) @db.Decimal(16, 3)
+  purchasePrice   Decimal         @default(0) @db.Decimal(16, 2)
+  sellingPrice    Decimal         @default(0) @db.Decimal(16, 2)
+  lastPurchasedAt DateTime?       @db.Date
+  notes           String?         @db.VarChar(1000)
+  active          Boolean         @default(true)
+  createdAt       DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(3)
+  purchaseItems   PurchaseItem[]
+  saleItems       SaleItem[]
+  movements       StockMovement[]
+
+  transferItems TransferItem[]
+  ledgerLines   LedgerLine[]
+
+  @@index([name])
+  @@index([categoryId, active])
+  @@map("inventory_items")
+}
+
+model Purchase {
+  id               Int            @id @default(autoincrement())
+  supplierId       Int?
+  supplier         Supplier?      @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  purchaseDate     DateTime       @db.Date
+  invoiceReference String?        @db.VarChar(120)
+  note             String?        @db.VarChar(1000)
+  totalCost        Decimal        @default(0) @db.Decimal(16, 2)
+  createdById      Int
+  createdBy        User           @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt        DateTime       @default(now()) @db.Timestamptz(3)
+  items            PurchaseItem[]
+
+  @@index([purchaseDate])
+  @@map("purchases")
+}
+
+model PurchaseItem {
+  id              Int           @id @default(autoincrement())
+  purchaseId      Int
+  purchase        Purchase      @relation(fields: [purchaseId], references: [id], onDelete: Restrict)
+  inventoryItemId Int
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  productName     String        @db.VarChar(160)
+  quantity        Decimal       @db.Decimal(16, 3)
+  unitCost        Decimal       @db.Decimal(16, 2)
+  totalCost       Decimal       @db.Decimal(16, 2)
+
+  @@index([purchaseId])
+  @@map("purchase_items")
+}
+
+model Sale {
+  id          Int        @id @default(autoincrement())
+  soldAt      DateTime   @default(now()) @db.Timestamptz(3)
+  total       Decimal    @default(0) @db.Decimal(16, 2)
+  createdById Int
+  createdBy   User       @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  note        String?    @db.VarChar(1000)
+  createdAt   DateTime   @default(now()) @db.Timestamptz(3)
+  items       SaleItem[]
+  ledgerDayId Int?
+  ledgerDay   LedgerDay? @relation(fields: [ledgerDayId], references: [id], onDelete: Restrict)
+  shift       Int?
+
+  @@unique([ledgerDayId, shift])
+  @@index([soldAt])
+  @@map("sales")
+}
+
+model SaleItem {
+  id              Int           @id @default(autoincrement())
+  saleId          Int
+  sale            Sale          @relation(fields: [saleId], references: [id], onDelete: Restrict)
+  inventoryItemId Int
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  productName     String        @db.VarChar(160)
+  quantity        Decimal       @db.Decimal(16, 3)
+  sellingPrice    Decimal       @db.Decimal(16, 2)
+  unitCost        Decimal?      @db.Decimal(16, 2)
+  total           Decimal       @db.Decimal(16, 2)
+
+  @@index([saleId])
+  @@index([inventoryItemId])
+  @@map("sale_items")
+}
+
+model StockMovement {
+  id               Int           @id @default(autoincrement())
+  inventoryItemId  Int
+  inventoryItem    InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  type             MovementType
+  location         String        @default("WAREHOUSE") @db.VarChar(20)
+  quantity         Decimal       @db.Decimal(16, 3)
+  previousQuantity Decimal       @db.Decimal(16, 3)
+  newQuantity      Decimal       @db.Decimal(16, 3)
+  unitCost         Decimal?      @db.Decimal(16, 2)
+  referenceId      Int?
+  note             String?       @db.VarChar(1000)
+  createdById      Int
+  createdBy        User          @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  createdAt        DateTime      @default(now()) @db.Timestamptz(3)
+
+  @@unique([inventoryItemId, type, referenceId])
+  @@index([inventoryItemId, createdAt])
+  @@map("inventory_movements")
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  action    String   @db.VarChar(80)
+  entityId  Int
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([entityId, createdAt])
+  @@map("audit_logs")
+}
+
+model Command {
+  key       String   @id @db.VarChar(80)
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
+  kind      String   @db.VarChar(40)
+  bodyHash  String   @db.Char(64)
+  result    Json
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@map("commands")
+}
+
+model LedgerDay {
+  id            Int             @id @default(autoincrement())
+  date          DateTime        @unique @db.Date
+  stage         Int             @default(1)
+  version       Int             @default(0)
+  openedBy      Int
+  firstClosedBy Int?
+  closedBy      Int?
+  createdAt     DateTime        @default(now()) @db.Timestamptz(3)
+  firstClosedAt DateTime?       @db.Timestamptz(3)
+  closedAt      DateTime?       @db.Timestamptz(3)
+  lines         LedgerLine[]
+  transfers     StockTransfer[]
+  sales         Sale[]
+
+  @@map("ledger_days")
+}
+
+model LedgerLine {
+  id              Int           @id @default(autoincrement())
+  dayId           Int
+  day             LedgerDay     @relation(fields: [dayId], references: [id], onDelete: Restrict)
+  inventoryItemId Int
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  name            String        @db.VarChar(160)
+  category        String?       @db.VarChar(120)
+  unit            String        @db.VarChar(20)
+  opening         Decimal       @db.Decimal(16, 3)
+  receivedFirst   Decimal       @default(0) @db.Decimal(16, 3)
+  receivedSecond  Decimal       @default(0) @db.Decimal(16, 3)
+  countFirst      Decimal?      @db.Decimal(16, 3)
+  countFinal      Decimal?      @db.Decimal(16, 3)
+  soldFirst       Decimal?      @db.Decimal(16, 3)
+  soldSecond      Decimal?      @db.Decimal(16, 3)
+  costFirst       Decimal?      @db.Decimal(18, 6)
+  costSecond      Decimal?      @db.Decimal(18, 6)
+  sellingPrice    Decimal       @db.Decimal(16, 2)
+  revenueFirst    Decimal       @default(0) @db.Decimal(16, 2)
+  revenueSecond   Decimal       @default(0) @db.Decimal(16, 2)
+  costTotalFirst  Decimal?      @db.Decimal(16, 2)
+  costTotalSecond Decimal?      @db.Decimal(16, 2)
+
+  @@unique([dayId, inventoryItemId])
+  @@map("ledger_lines")
+}
+
+model StockTransfer {
+  id        Int            @id @default(autoincrement())
+  dayId     Int
+  day       LedgerDay      @relation(fields: [dayId], references: [id], onDelete: Restrict)
+  shift     Int
+  createdBy Int
+  note      String?        @db.VarChar(1000)
+  createdAt DateTime       @default(now()) @db.Timestamptz(3)
+  items     TransferItem[]
+
+  @@map("stock_transfers")
+}
+
+model TransferItem {
+  id              Int           @id @default(autoincrement())
+  transferId      Int
+  transfer        StockTransfer @relation(fields: [transferId], references: [id], onDelete: Restrict)
+  inventoryItemId Int
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  name            String        @db.VarChar(160)
+  unit            String        @db.VarChar(20)
+  quantity        Decimal       @db.Decimal(16, 3)
+  unitCost        Decimal?      @db.Decimal(18, 6)
+
+  @@unique([transferId, inventoryItemId])
+  @@map("transfer_items")
+}

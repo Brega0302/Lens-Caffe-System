@@ -1,0 +1,65 @@
+.payment-registry {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.revenue-card {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  padding: 1.5rem 2rem;
+  border-radius: 12px;
+  color: white;
+  box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3);
+}
+
+.revenue-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+}
+
+.revenue-details h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  opacity: 0.9;
+}
+
+.revenue-amount {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.method-badge {
+  display: inline-block;
+  padding: 0.25rem 0.75rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.method-cash {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.method-card {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.text-green {
+  color: #10b981;
+}
+
+.mt-4 {
+  margin-top: 1rem;
+}

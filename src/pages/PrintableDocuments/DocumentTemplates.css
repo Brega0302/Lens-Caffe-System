@@ -1,0 +1,106 @@
+.print-page {
+  background: white;
+  color: black;
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto;
+  padding: 10mm;
+  font-family: 'Times New Roman', Times, serif;
+  box-sizing: border-box;
+}
+
+.doc-template {
+  padding: 10mm;
+  box-sizing: border-box;
+  height: 135mm;
+  display: flex;
+  flex-direction: column;
+}
+
+.cut-line {
+  border-top: 1px dashed #666;
+  margin: 5mm 0;
+  width: 100%;
+}
+
+.doc-header {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+}
+
+.header-row {
+  display: flex;
+  align-items: flex-end;
+  margin-bottom: 4px;
+  gap: 8px;
+}
+
+.fillable-field {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  border-bottom: 1px solid black;
+  margin: 0 4px;
+  position: relative;
+}
+
+.field-value {
+  font-weight: bold;
+  font-family: 'Inter', sans-serif;
+  transform: translateY(2px);
+}
+
+.field-label {
+  font-size: 9px;
+  position: absolute;
+  top: 100%;
+  white-space: nowrap;
+}
+
+.text-center { text-align: center; }
+.text-right { text-align: right; }
+.text-justify { text-align: justify; }
+.font-bold { font-weight: bold; }
+.text-xl { font-size: 1.25rem; }
+.text-lg { font-size: 1.1rem; }
+.text-md { font-size: 1rem; }
+.text-sm { font-size: 0.9rem; }
+.uppercase { text-transform: uppercase; }
+.mt-1 { margin-top: 0.25rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-3 { margin-top: 0.75rem; }
+.mt-4 { margin-top: 1rem; }
+.mt-6 { margin-top: 1.5rem; }
+.mt-8 { margin-top: 2rem; }
+.mt-10 { margin-top: 2.5rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mb-4 { margin-bottom: 1rem; }
+.my-4 { margin-top: 1rem; margin-bottom: 1rem; }
+.my-6 { margin-top: 1.5rem; margin-bottom: 1.5rem; }
+.leading-relaxed { line-height: 1.8; }
+.flex { display: flex; }
+.justify-between { justify-content: space-between; }
+.justify-end { justify-content: flex-end; }
+.items-end { align-items: flex-end; }
+.border-b { border-bottom-width: 1px; border-bottom-style: solid; }
+.border-black { border-color: black; }
+.w-48 { width: 12rem; }
+.mx-auto { margin-left: auto; margin-right: auto; }
+
+@media print {
+  body {
+    background: white;
+    margin: 0;
+    padding: 0;
+  }
+  .print-page {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100%;
+  }
+  .doc-template {
+    page-break-inside: avoid;
+  }
+}
