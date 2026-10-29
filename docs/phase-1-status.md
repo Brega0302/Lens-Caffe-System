@@ -1,38 +1,42 @@
-# Phase 1 — završni izvještaj, 23.10.2026.
+# Phase 1 delivery report — October 23, 2026
 
-## Isporučeno
+This is a historical record of the initial Phase 1 delivery. The later warehouse and two-shift ledger upgrade is documented in [the ledger guide](magacin-knjiga-pazara.md). Test counts and dependency-audit results below describe the checks recorded on the delivery date, not a new audit.
 
-Aktivni LensOS je React/TypeScript + Express/TypeScript aplikacija sa stvarnim PostgreSQL/Prisma backendom. Interfejs je na bosanskom, cijene su BAM/KM, a poslovni datumi su vezani za Sarajevo. Postojeće café stranice/CSS su iskorištene i poboljšane. Legacy SQLite baza i izvorni kod su sačuvani i odvojeni od aktivnog servera.
+## Delivered functionality
 
-Vlasnička prijava koristi bcrypt i hashirane sesije. Dostupni su artikli/kategorije, pretraga/filter/sortiranje, aktivacija/deaktivacija, minimalne količine, napomene, dobavljač, datum zadnje nabavke, historija, korekcije s razlogom, nabavke s brojem fakture i historijskim jediničnim cijenama, dnevna prodaja s datumskim filterima, atomsko skidanje zaliha i dashboard. Zalihe ne mogu biti negativne. Stare prodajne cijene se ne prepisuju.
+The active LensOS application uses React/TypeScript, Express/TypeScript and PostgreSQL through Prisma. The interface is in Bosnian, amounts use BAM/KM, and business dates follow Sarajevo time. Existing café screens and CSS were reused and improved. Legacy source and local SQLite data were kept separate from the active server; local databases are not included in the public repository.
 
-Stock komande imaju idempotency ključ. Ponovljeni i istovremeni zahtjevi ne dovode do dvostrukog skidanja. Audit čuva autora, vrijeme i podatke promjene. Upozorenja o zalihama se računaju dinamički. Demo, stvarni razvoj i testovi imaju odvojene PostgreSQL baze.
+Owner login uses bcrypt and hashed sessions. The initial delivery included inventory items/categories, search/filter/sort, activation/deactivation, minimum quantities, notes, suppliers, latest purchase dates, movement history, adjustments with a required reason, invoices with historical unit costs, sales-history date filters, atomic stock updates and a dashboard. Stock cannot become negative, and historical selling prices are preserved.
 
-## Baza
+Stock commands use idempotency keys. Repeated and concurrent requests do not deduct stock twice. Audit records store the actor, timestamp and change details. Low-stock alerts are computed dynamically. Demo, development and tests use separate PostgreSQL databases.
 
-Primijenjena je `202610230001_phase_one` migracija. Dvanaest poslovnih tabela: users, sessions, inventory_categories, suppliers, inventory_items, purchases, purchase_items, sales, sale_items, inventory_movements, audit_logs, commands. Prisma zasebno vodi svoju migracijsku historiju. Novac je NUMERIC(16,2), količine NUMERIC(16,3). FK i CHECK ograničenja štite historiju, iznose i balans kretanja.
+## Database
 
-## Izvršene provjere
+Migration 202610230001_phase_one was applied for this delivery. It created 12 business tables: users, sessions, inventory_categories, suppliers, inventory_items, purchases, purchase_items, sales, sale_items, inventory_movements, audit_logs and commands. Prisma maintains its own migration history. Money uses NUMERIC(16,2), quantities use NUMERIC(16,3), and foreign-key/CHECK constraints protect history, amounts and movement balances.
 
-| Provjera | Rezultat |
+## Recorded validation
+
+| Check | Result |
 | --- | --- |
-| TypeScript: frontend i backend | Prošlo |
-| Vite production build | Prošlo |
-| Postojeći regresijski/unit testovi | 50/50 |
-| Nova PostgreSQL integracijska provjera | 19/19 |
-| Playwright/Edge: prijava, artikal, nabavka, prodaja, historija, mobilni prikaz i fokus | 1/1 |
-| Prisma generate i migrate status | Prošlo; baza ažurna |
-| Frontend i API health | HTTP 200; PostgreSQL povezan |
-| npm audit --omit=dev | 0 prijavljenih ranjivosti |
+| Frontend and backend TypeScript | Passed |
+| Vite production build | Passed |
+| Existing unit/regression tests | 50/50 |
+| Initial PostgreSQL integration tests | 19/19 |
+| Playwright/Edge: login, item, purchase, sale, history, mobile layout and focus | 1/1 |
+| Prisma generation and migration status | Passed; database up to date |
+| Frontend and API health | HTTP 200; PostgreSQL connected |
+| npm audit --omit=dev | No reported vulnerabilities at the time |
 
-Testovi su izvršeni i nakon kompatibilnih zakrpa zavisnosti. Screenshotovi desktop/mobilnog prikaza su lokalno u `.local/screenshots`. Integration i browser testovi koriste nove sheme unutar `_test` baze i uklanjaju ih, bez pisanja u demo ili stvarne podatke.
+Tests were repeated after compatible dependency patches. Desktop/mobile screenshots were saved locally in .local/screenshots. Integration and browser tests created and removed isolated schemas within the _test database without writing to demo or business records.
 
-## Sigurnosne napomene i ograničenja
+## Security notes and limitations at delivery
 
-Kompatibilne zakrpe uklonile su prijavljene produkcijske advisories. Prisma config CLI ima uski `deepmerge-ts=8.0.2` override zbog [prijavljenog problema s rekurzivnim grafovima](https://github.com/advisories/GHSA-ggr8-5vv4-36mx). Prisma u ovom projektu spaja običnu statičnu konfiguraciju; generisanje klijenta, migracije i integracijski testovi su ponovljeni s tim overrideom. Ukloniti ga nakon buduće provjerene nadogradnje Prisma CLI-ja koja uključuje zakrpu.
+Compatible patches addressed reported production advisories. The Prisma configuration CLI used a narrow deepmerge-ts=8.0.2 override for a [reported recursive-graph issue](https://github.com/advisories/GHSA-ggr8-5vv4-36mx). The project merges ordinary static configuration; client generation, migrations and integration tests were repeated with that override. Remove it after a verified Prisma CLI upgrade includes the relevant fix.
 
-Puni audit i dalje prijavljuje pet problema razvojnih/legacy alata: jedan high (brace-expansion) i četiri moderate (Vitest lanac i stari Electron wrapper). Electron nije dio aktivnog web servera. Za ove alate ostaje planirano zasebno ažuriranje; produkcijski audit je čist. Ne postoji tvrdnja o nezavisnoj sigurnosnoj certifikaciji.
+The full dependency audit at delivery still reported five development/legacy-tool issues: one high-severity brace-expansion issue and four moderate issues in the Vitest dependency chain and old Electron wrapper. Electron is not part of the active web server. Those tools need a separate upgrade. These results do not constitute an independent security certification.
 
-Aplikacija trenutno radi lokalno u demo načinu. Za stvarni udaljeni rad potrebni su odvojena stvarna baza, HTTPS reverse proxy, odgovarajuće DB ovlasti i operativni backup raspored. Upute za backup i probni oporavak su u `operations.md`; backup automatizacija i probni povrat nisu izvršeni u ovoj fazi. Liste su ograničene na 1.000 zapisa, prodaje na 5.000 po periodu uz upozorenje. Finansijski dokumenti nemaju naknadno uređivanje/storno UI; takav audited reversal tok još nije dodat.
+The application ran locally in demo mode. Remote business use requires a separate business database, an HTTPS reverse proxy, restricted database permissions and an operational backup schedule. [Operations documentation](operations.md) describes backup and restore checks; backup automation and a restore exercise were not completed in this phase.
 
-Recepti, otpis/popis, zaposleni, QR projekat, rashodi, grafikoni, izvozi i javni sajt ostaju za naredne faze. Phase 2 nije započeta. Ponovno pokretanje i sve komande navedeni su u README-u.
+Lists were limited to 1,000 records, and sales to 5,000 records per period with a warning. Financial documents had no edit/reversal interface; an audited reversal workflow remained unimplemented.
+
+Recipes, write-offs, stocktaking, employees, QR integration, expenses, charts, exports and public deployment remained planned work. See the README and later ledger guide for the current workflow and startup commands.

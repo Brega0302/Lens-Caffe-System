@@ -1,53 +1,64 @@
-# LensOS: API, migracije i oporavak
+# LensOS API, migrations and recovery
 
-## API
+## API access
 
-Svi poslovni endpointi zahtijevaju `Authorization: Bearer <session>`. Vlasnik/menadžer imaju Phase 1 operativne dozvole. EMPLOYEE trenutno nema dodijeljene ovlasti; administracija zaposlenika dolazi kasnije. Vlasnik dodatno može čitati audit.
+Business endpoints require an Authorization: Bearer <session> header. Owner and manager roles have operational permissions. EMPLOYEE has no assigned permissions yet; employee administration is planned. Only the owner can read the audit log.
 
-| Metoda | Endpoint | Sadržaj |
+| Method | Endpoint | Purpose or request fields |
 | --- | --- | --- |
-| POST | /api/auth/login | username, password; vraća token, expiresAt, user |
-| POST | /api/auth/logout | Opoziv trenutne sesije |
-| GET | /api/session | Korisnik i oznaka demo okruženja |
+| POST | /api/auth/login | username, password; returns token, expiresAt and user |
+| POST | /api/auth/logout | Revoke the current session |
+| GET | /api/session | Current user and demo-environment indicator |
 | GET | /api/inventory | search, categoryId, lowStock, sort, direction |
-| GET | /api/inventory/:id | Artikal |
-| POST | /api/inventory | name, unit, category, supplier, minimumQuantity, purchasePrice, sellingPrice, notes |
-| PATCH | /api/inventory/:id | Isti kompletan oblik kao POST; nema currentQuantity |
+| GET | /api/inventory/:id | Inventory item |
+| POST | /api/inventory | Item details, classification, supplier, minimum quantity and prices |
+| PATCH | /api/inventory/:id | Complete item update; currentQuantity is not directly writable |
 | PATCH | /api/inventory/:id/status | active: boolean |
-| GET | /api/inventory/:id/movements | Historija s korisnikom i vremenom |
-| POST | /api/inventory/:id/adjustments | quantity (potpisan broj), note (obavezan), type=MANUAL_ADJUSTMENT |
-| GET/POST | /api/purchases | purchaseDate, supplier, invoiceReference, note, items[{inventoryItemId, quantity, unitCost}] |
-| GET | /api/purchases/:id | Nabavka i historijske cijene |
-| GET/POST | /api/sales | GET: from/to; POST: saleDate ili soldAt, note, items[{inventoryItemId, quantity, sellingPrice?}] |
-| GET | /api/sales/:id | Sačuvana prodaja |
-| GET | /api/dashboard/summary | date (YYYY-MM-DD, zadano danas) |
-| GET | /api/audit | Posljednjih 200 zapisa; samo OWNER |
-| GET | /api/health | Provjera baze i API-ja |
+| GET | /api/inventory/:id/movements | Movement history with actor and timestamp |
+| POST | /api/inventory/:id/adjustments | Signed quantity, required note, type=MANUAL_ADJUSTMENT |
+| GET/POST | /api/purchases | purchaseDate, supplier, invoiceReference, note and purchase items |
+| GET | /api/purchases/:id | Purchase with historical prices |
+| GET | /api/sales | Sales history filtered by from/to |
+| GET | /api/sales/:id | Stored sale |
+| GET | /api/ledger | Daily ledger; date=YYYY-MM-DD |
+| POST | /api/ledger/open | Open the daily ledger |
+| POST | /api/ledger/:id/draft | Save stock-count entries |
+| POST | /api/ledger/:id/close | Confirm a shift or daily close |
+| GET/POST | /api/stock-transfers | List or create warehouse-to-café transfers |
+| GET | /api/dashboard/summary | Summary for date=YYYY-MM-DD; defaults to today |
+| GET | /api/audit | Latest 200 audit entries; OWNER only |
+| GET | /api/health | API and database health |
 
-POST za prodaju, nabavku ili korekciju zahtijeva jedinstveni `Idempotency-Key` od 16–80 znakova (UUID preporučen). Pri mrežnoj grešci ponovite potpuno isti zahtjev s istim ključem. Promjena tijela ili korisnika uz isti ključ daje 409. Uspješni replay vraća isti ID. Za novu namjernu transakciju koristite novi ključ. Dupli artikal u istom dokumentu je odbijen.
+Manual POST /api/sales is disabled in the current ledger workflow. Sales are posted from shift counts. See the [ledger guide](magacin-knjiga-pazara.md).
 
-Novac se šalje kao decimalni string, npr. `"2.50"`, količine kao `"1.250"`. Server koristi Decimal, a DB ograničenja onemogućavaju negativne cijene/zalihe i neuravnotežena kretanja. Najviše 100 stavki po dokumentu. Datum bez vremena je YYYY-MM-DD; soldAt mora sadržati vremensku zonu/offset. Greške: 400 validacija, 401 prijava, 403 dozvola, 404 nepostojeći zapis, 409 zaliha/konflikt, 429 ograničenje zahtjeva.
+Write commands require a unique Idempotency-Key of 16–80 characters; a UUID is recommended. Retry a failed network request with the same body and key. Changing the body or user while reusing a key returns 409. A successful replay returns the original record ID. Use a new key for a genuinely new transaction. Duplicate item IDs within a document are rejected.
 
-## Migracije
+Send money as decimal strings, such as "2.50", and quantities as strings such as "1.250". The server calculates with Decimal, and database constraints reject negative prices/stock and unbalanced movements. Documents allow at most 100 items. Date-only values use YYYY-MM-DD; timestamps such as soldAt must include a time zone or offset.
 
-Prva migracija stvara 12 povezanih tabela: users, sessions, inventory_categories, suppliers, inventory_items, purchases, purchase_items, sales, sale_items, inventory_movements, audit_logs i commands. Prisma dodatno održava svoju `_prisma_migrations` tabelu. SQL uključuje indekse, FK, jedinice mjere, pozitivne stavke, jednadžbe iznosa i balans kretanja.
+Error status codes: 400 validation, 401 authentication, 403 permission, 404 missing record, 409 stock or concurrency conflict, and 429 request limit.
 
-Pokrenite `npm run db:generate` pa `npm run db:migrate`. Naredba koristi `prisma migrate deploy`; ne briše postojeće podatke niti seeduje automatski. Prije produkcijske migracije napravite i provjerite backup. Ne koristite migrate reset na stvarnoj bazi. Nova promjena sheme zahtijeva novu migraciju; ne mijenjajte već primijenjene SQL fajlove.
+## Migrations
 
-SQLite datoteka nije automatski migrirana. Prije eventualnog uvoza razdvojite stvarne/demo i legacy zapise, mapirajte korisnike, provjerite sume zaliha i cijene, uvezite u praznu staging bazu i usaglasite izvještaje. Nikad ne prepisujte izvornu datoteku tokom uvoza.
+The initial migration creates 12 related tables: users, sessions, inventory_categories, suppliers, inventory_items, purchases, purchase_items, sales, sale_items, inventory_movements, audit_logs and commands. Prisma also maintains _prisma_migrations. SQL constraints cover foreign keys, units of measure, positive line quantities, amount calculations and movement balances.
 
-## Backup i provjera povrata
+The warehouse/ledger migration adds separate café stock and transfer/ledger tables. See the ledger guide for its transaction boundaries and migration behavior.
 
-Za PostgreSQL koristite `pg_dump` iste ili novije glavne verzije od servera. Primjer (zamijenite host, port, ulogu i bazu vlastitim vrijednostima):
+Run npm run db:generate, then npm run db:migrate. Migration deployment does not delete existing records or automatically seed data. Make and verify a backup before production migrations. Never use migrate reset on a real business database. Schema changes require new migrations; do not edit SQL files that have already been applied.
 
-```powershell
+Legacy SQLite data is not imported automatically. Before an explicit import, separate business, demo and legacy records; map users; verify stock and price totals; import into an empty staging database; and reconcile reports. Never overwrite the original file during an import.
+
+## Backup and restore checks
+
+Use pg_dump from the same PostgreSQL major version as the server, or a newer compatible version. Replace the host, port, roles and database names below with your own:
+
+~~~powershell
 pg_dump -h 127.0.0.1 -p 5432 -U lensos_backup -d lensos -W -Fc -f lensos-2026-10-23.dump
 createdb -h 127.0.0.1 -p 5432 -U lensos_restore -W lensos_restore_check
 pg_restore -h 127.0.0.1 -p 5432 -U lensos_restore -d lensos_restore_check -W --no-owner --no-acl lensos-2026-10-23.dump
-```
+~~~
 
-`-W` traži lozinku interaktivno. Ne stavljajte lozinku u Git ili argument komandne linije. Za lokalni razvoj koristite port 55432 i ime lokalne baze.
+The -W option prompts for a password. Do not put passwords in Git or command-line arguments. For the isolated local development cluster, use port 55432 and the appropriate local database name.
 
-Plan za stvarno poslovanje: automatski dnevni backup, više verzija, šifrovana kopija na drugoj lokaciji, obavijest o neuspjehu i mjesečna proba oporavka. Zabilježite dogovoreni maksimalni gubitak podataka i vrijeme oporavka. Po potrebi dodajte PostgreSQL WAL/PITR. Ova aplikacija dokumentuje postupak; backup raspored nije automatski postavljen.
+For real business operation, plan automated daily backups, multiple retained versions, an encrypted off-site copy, failure notifications and a monthly restore exercise. Record the acceptable data-loss window and recovery time. Add PostgreSQL WAL/PITR if required. These procedures are documented; this application does not automatically configure a backup schedule.
 
-Obnavljajte prvo u novu bazu. Provjerite migrate status, broj dokumenata, dnevni prihod, sumu stavki i balans kretanja prema trenutnim zalihama. Pokrenite aplikaciju nad obnovljenom bazom u izolovanom okruženju. Tek nakon provjere prebacite DATABASE_URL i sačuvajte prethodnu bazu. Ne koristite --clean nad aktivnom stvarnom bazom.
+Restore into a new database first. Check migration status, document counts, daily revenue, line-item totals and stock-movement balances against current quantities. Run the application against the restored database in isolation. Change DATABASE_URL only after verification, and retain the previous database. Do not use --clean against the active business database.

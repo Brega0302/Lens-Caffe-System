@@ -1,47 +1,67 @@
-# Magacin i knjiga pazara
+# Warehouse inventory and daily sales ledger
 
-## Kako koristiti
+## Workflow
 
-1. U **Magacinu → Dodaj artikal** unesite naziv, jedinicu, kategoriju, minimalnu zalihu i cijene. Označite da li se artikal prodaje. Higijenu, čaše, potrošni materijal i slične artikle ostavite bez oznake prodaje.
-2. **Dodaj zalihu / Nabavke** evidentira prijem robe i nabavnu cijenu. Roba se povećava samo u magacinu.
-3. U **Izdavanju robe → Izdaj robu** odaberite artikle i količine koje nosite u lokal. Jedna potvrda smanjuje magacin, povećava stanje u kafiću i dopunjava tekuću smjenu u knjizi. Prodajna roba je u knjizi automatski razvrstana po kategoriji i nazivu; potrošni materijal ne ulazi u pazar.
-4. **Knjiga pazara** počinje stanjem preostalim u kafiću. Na predaji prve smjene fizički prebrojite svaki artikal i unesite preostale količine, uključujući nule. **Spremi unos** čuva pripremu, a **Potvrdi predaju prve smjene** knjiži prodaju.
-5. Dopune nakon prve predaje pripadaju drugoj smjeni. Na kraju dana unesite završno stanje i potvrdite **Zaključi dan i pazar**. Sljedeća knjiga preuzima tu preostalu robu.
-6. U zaglavlju aplikacije i na pregledu vidi se **Naručiti** kada je magacinska zaliha na minimumu ili je nema. Provjera se osvježava nakon promjene, pri povratku u aplikaciju i svakih 60 sekundi. Obavijest je u aplikaciji, bez emaila ili SMS-a.
+The application uses Bosnian labels. This guide gives their English meanings so the interface can be followed without mixing documentation languages.
 
-Primjer:
+1. In the warehouse screen, add an item with its name, unit, category, minimum stock and prices. Mark whether it is sellable. Leave cleaning products, glassware and other supplies unmarked.
+2. Record incoming stock and its purchase cost through a purchase. This increases warehouse stock only.
+3. Create a warehouse-to-café transfer with the items and quantities being issued. Confirmation reduces the warehouse, increases café stock and adds replenishment to the current ledger shift. Sellable items are sorted by category and name; non-sellable supplies are excluded from revenue.
+4. The daily ledger opens with the stock remaining in the café. At the first-shift handover, physically count every item and enter its remaining quantity, including zeros. Saving a draft preserves the entry; confirming the handover posts the shift's sales.
+5. Transfers after the first handover belong to the second shift. At closing, enter the final counts and confirm the daily close. The next ledger starts with that remaining stock.
+6. A reorder alert appears in the application header and overview when warehouse stock is at or below its minimum, including zero. Alerts refresh after changes, when returning to the application and every 60 seconds. Notifications are in-app only; email and SMS are not implemented.
 
-| Korak | Magacin | Kafić | Obračun |
+## Example
+
+| Step | Warehouse | Café | Calculation |
 | --- | ---: | ---: | --- |
-| Nabavka 10 boca | 10 | 0 | Nabavka, bez prodaje |
-| Izdano 6 boca | 4 | 6 | Dopuna I +6 |
-| Predaja I: preostale 2 | 4 | 2 | Prodano 4 × 2,50 = 10,00 KM |
-| Dopuna II: 2 boce | 2 | 4 | Dopuna II +2 |
-| Kraj dana: preostala 1 | 2 | 1 | Prodano 3 × 2,50 = 7,50 KM |
-| Ukupno | 2 | 1 | 7 prodanih, pazar 17,50 KM |
+| Purchase 10 bottles | 10 | 0 | Purchase only; no sale |
+| Transfer 6 bottles | 4 | 6 | First-shift replenishment +6 |
+| First handover: 2 remain | 4 | 2 | 4 sold × 2.50 = 10.00 KM |
+| Second-shift transfer: 2 bottles | 2 | 4 | Second-shift replenishment +2 |
+| Closing count: 1 remains | 2 | 1 | 3 sold × 2.50 = 7.50 KM |
+| Total | 2 | 1 | 7 sold; revenue 17.50 KM |
 
-Ako je procijenjena nabavna cijena 1,20 KM, procijenjena bruto zarada za sedam boca je 9,10 KM. Plata, kirija, porezi i drugi rashodi nisu obuhvaćeni. Količine se mogu voditi s tri decimale, ali jedinica mora biti ista pri prijemu, izdavanju i prebrojavanju. Pretvaranje kutija u boce i recepti još nisu automatski uvedeni.
+At an estimated purchase cost of 1.20 KM, estimated gross profit for seven bottles is 9.10 KM. Wages, rent, taxes and other expenses are excluded.
 
-## Pravila obračuna
+Quantities support three decimal places, but the same unit must be used when receiving, transferring and counting stock. Box-to-bottle conversion and recipes are not automated.
 
-Prva smjena: početno + dopuna I − predaja I = prodano I.
+## Calculation rules
 
-Druga smjena: predaja I + dopuna II − završno stanje = prodano II.
+First shift: opening stock + first-shift replenishment − handover count = first-shift quantity sold.
 
-Svaka razlika računa se kao prodaja. Prije potvrde provjerite stvarno stanje i eventualni manjak, oštećenje ili pogrešan unos. Ova verzija još nema poseban otpis robe iz kafića niti storniranje zaključene smjene. Magacinska korekcija s obaveznim razlogom i dalje postoji, ali ne mijenja stanje u kafiću.
+Second shift: first-shift handover count + second-shift replenishment − closing count = second-shift quantity sold.
 
-Prebrojano stanje veće od zaduženja nije dozvoljeno; prvo ispravno evidentirajte dopunu. Svaka smjena zahtijeva stanje svih artikala. Zaključene smjene su nepromjenjive. Ručno knjiženje pojedinačnih prodaja preko starog POST /api/sales je isključeno da ne bi došlo do dvostrukog obračuna. Historija starih prodaja ostaje dostupna.
+Every difference is treated as a sale. Check physical stock, shortages, damage and entry errors before confirmation. This version has no separate café write-off or closed-shift reversal workflow. Warehouse adjustments still require a reason and do not change café stock.
 
-Dok traje otvorena smjena, kolona stanja u kafiću predstavlja zaduženje nakon prethodne predaje i novih dopuna. Stvarno preostalo stanje postaje potvrđeno nakon fizičkog prebrojavanja. Sistem ne zna prodaju uživo između dva brojanja.
+A count cannot exceed the stock assigned to the shift; record any missing transfer first. Every item needs a count. Confirmed shifts are immutable. The earlier manual POST /api/sales endpoint is disabled to prevent double posting, while historical sales remain available.
 
-Nabavna procjena magacina računa se ponderisano kroz nove nabavke. Izdavanje prenosi tu procjenu u kafić, a dopune se ponderišu s preostalom robom. Prva i druga smjena čuvaju zasebnu procjenu troška; svaka knjiga čuva prodajnu cijenu tokom dana. Promjena kataloške cijene važi za novu knjigu, bez prepisivanja prethodne. Ako nabavna vrijednost nije poznata, bruto zarada se ne izmišlja nego prikazuje kao nepoznata.
+During an open shift, the café quantity represents stock assigned after the previous handover and subsequent transfers. Actual remaining stock is confirmed by a physical count. The system does not know live sales between counts.
 
-## Baza i sigurnost
+Warehouse purchase-cost estimates are weighted across new purchases. Transfers carry the estimate into the café, where replenishment is weighted with remaining stock. Each shift stores its own cost estimate, and each daily ledger preserves its selling prices. Catalog price changes apply to a new ledger without rewriting an earlier one. Unknown purchase costs produce unknown gross profit rather than an invented value.
 
-Migracija `202610230002_warehouse_ledger` dodaje zasebno café stanje, procijenjene troškove, oznaku prodajnog artikla, ledger_days, ledger_lines, stock_transfers i transfer_items. Postojeća količina ostaje u magacinu; café stanje počinje nulom. Prodajni artikli se pri migraciji prepoznaju po ranijoj pozitivnoj prodajnoj cijeni. Stara roba s poznatom nabavkom dobija početnu procjenu iz posljednje nabavne cijene, što nije retroaktivni FIFO obračun. Vlasnik može provjeriti i ispraviti klasifikaciju u magacinu.
+## Database and authorization
 
-PostgreSQL enum vrijednosti se prvo dodaju u vlastitoj potvrđenoj transakciji; potom se ostale izmjene primjenjuju zajedno. Ograničenja štite pozitivna stanja, balans oba kretanja pri prijenosu i samo jednu otvorenu knjigu. Izdavanje i zaključivanje su serializable transakcije s idempotency ključem. Verzija knjige sprječava potvrdu zastarjelog brojanja ako je neko u međuvremenu izdao novu robu. Svako izdavanje, otvaranje, spremanje unosa i zaključivanje ima audit zapis i odgovornog korisnika.
+Migration 202610230002_warehouse_ledger adds separate café quantities, cost estimates, a sellable-item flag, ledger_days, ledger_lines, stock_transfers and transfer_items.
 
-Aktivni endpointi: GET /api/ledger?date=YYYY-MM-DD, POST /api/ledger/open, POST /api/ledger/:id/draft, POST /api/ledger/:id/close, GET/POST /api/stock-transfers. Mutacije zahtijevaju postojeću vlasničku/menadžersku dozvolu i Idempotency-Key. Posebna knjiga/pristup za konobare nije uvedena u ovoj nadogradnji.
+Existing quantities remain in the warehouse; café stock starts at zero. Items with an earlier positive selling price are initially classified as sellable. Existing items with known purchases receive an initial estimate from the latest purchase price; this is not a retroactive FIFO calculation. The owner can review and correct the classification.
 
-Provjere: 20 PostgreSQL testova za prijem, prijenos, ponavljanje, konkurentnost, obje smjene, cijene, nepoznati trošak, noćni prijenos stanja, upozorenja i dozvole; 50 regresijskih testova; browser tok s magacinom, dvije smjene i mobilnim prikazom. Pokretanje: `npm run db:migrate`, `npm run dev:web`. Lozinka postojećeg demo korisnika nije promijenjena.
+PostgreSQL enum values are added in their own committed transaction before the remaining schema changes are applied together. Constraints protect nonnegative stock, balanced transfer movements and a single open ledger.
+
+Transfers and shift closing use serializable transactions with idempotency keys. Ledger version checks reject stale counts if another transfer changed the ledger. Transfers, opening, draft saves and closing produce audit records identifying the responsible user.
+
+Active endpoints:
+
+- GET /api/ledger?date=YYYY-MM-DD
+- POST /api/ledger/open
+- POST /api/ledger/:id/draft
+- POST /api/ledger/:id/close
+- GET/POST /api/stock-transfers
+
+Writes require the existing owner/manager permission and an Idempotency-Key. Dedicated waiter access is planned.
+
+## Validation recorded for this upgrade
+
+The upgrade was checked with 20 PostgreSQL tests covering receipt, transfer, replay, concurrency, both shifts, prices, unknown costs, overnight carry-forward, alerts and permissions; 50 regression tests; and a browser flow covering warehouse operations, both shifts and mobile layout.
+
+Apply migrations with npm run db:migrate and start the application with npm run dev:web. The upgrade does not change the existing demo user's password.

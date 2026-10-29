@@ -2,133 +2,147 @@
 
 > **Work in progress — actively developing and improving.** This is an ongoing personal project for Caffe Lens. Features, design and workflows are still being refined; it is not a finished production release.
 
-## Project overview
+## Overview
 
-LensOS is a full-stack café management application built around day-to-day hospitality workflows. It connects warehouse stock, goods transferred to the café, purchasing and a two-shift daily sales ledger.
+LensOS is a full-stack café management application based on day-to-day hospitality workflows. It connects warehouse inventory, goods transferred to the café, purchasing and a daily sales ledger with two shifts.
 
-### Implemented features
+The application interface is in Bosnian for local staff. Repository documentation is in English. Amounts use BAM/KM, and business dates follow Europe/Sarajevo.
+
+## Implemented features
 
 - Owner authentication with bcrypt password hashing and hashed sessions.
-- Inventory, categories, suppliers, purchase records and low-stock alerts.
-- Warehouse-to-café transfers with transactional stock updates.
-- Opening counts, first-shift handover and closing counts with sales calculations.
-- Historical purchase/selling prices, estimated gross profit and an audit trail.
-- A responsive Bosnian-language interface with BAM/KM amounts.
+- Inventory items, categories, suppliers, purchase records and low-stock alerts.
+- Separate warehouse and café stock, connected by transactional transfers.
+- Opening counts, first-shift handover, second-shift replenishment and closing counts.
+- Automatic calculation of quantities sold, shift revenue and daily revenue from stock counts.
+- Historical selling prices, estimated purchase costs and estimated gross profit.
+- Audit records, idempotent commands and protection against negative stock.
+- A responsive interface with separate demo, development and test databases.
 
-**Stack:** React, TypeScript, Vite, Node.js, Express, PostgreSQL and Prisma. The project includes Vitest, PostgreSQL integration tests and Playwright browser tests.
+See the [warehouse and ledger guide](docs/magacin-knjiga-pazara.md) for the current workflow. The separate QR menu project has not yet been integrated.
 
-### In progress and planned
+## Technology and structure
 
-Further work includes a dedicated waiter workflow and permissions, inventory write-offs and corrections to posted financial documents, reporting/exports and deployment hardening. The separate QR menu is not yet integrated into this system. Current limitations and setup instructions are documented below and in `docs/`.
+- React 19, TypeScript, Vite, React Router, Tailwind CSS and custom CSS.
+- Node.js 22.17+, Express 5, Zod, bcrypt and hashed bearer sessions.
+- PostgreSQL and Prisma 6.19.3. Money uses NUMERIC(16,2); quantities use NUMERIC(16,3).
+- src/lensos: active frontend screens and types; src/api: API client.
+- server/lensos: active API, authorization, validation and transactional services.
+- prisma/schema.prisma: relational model; prisma/migrations: versioned migrations and database constraints.
+- scripts: isolated local PostgreSQL setup and browser-test helpers.
+- docs: architecture, API, operations and workflow documentation.
 
-Development status: **ongoing**. The source includes earlier legacy modules retained during development; the active application is under `src/lensos` and `server/lensos`.
+Earlier QuattroDrive modules and game Socket.IO code are retained as legacy source. The active web server does not load them. Local SQLite databases are excluded from the repository and are not automatically imported into PostgreSQL. The legacy server can be started manually with npm run legacy:server; it uses the same port and must not run alongside the LensOS API.
 
-**Aktuelna nadogradnja:** odvojeni Magacin i Kafić, izdavanje robe i Knjiga pazara s prvom/drugom smjenom. [Upute za novi način rada](docs/magacin-knjiga-pazara.md). Prodaja se sada knjiži iz prebrojanih stanja; ranija historija je sačuvana. Posebna knjiga/prava za konobare dolaze kasnije.
+## Run locally on Windows
 
-Phase 1: trajna evidencija artikala, nabavki, dnevnih prodaja i kretanja zaliha. Interfejs je na bosanskom, valuta BAM/KM, vremenska zona Europe/Sarajevo.
+Install Node.js 22.17+ and PostgreSQL. The local setup script expects PostgreSQL under C:\Program Files\PostgreSQL.
 
-## Tehnologije i struktura
-
-- React 19, TypeScript, Vite, Tailwind i postojeći prilagođeni CSS; React Router.
-- Node 22.17+, Express 5, Zod validacija, bcrypt i hashirane sesije.
-- PostgreSQL i Prisma 6.19.3; decimalni novac NUMERIC(16,2), količine NUMERIC(16,3).
-- `src/lensos`: aktivni TypeScript ekrani i tipovi; `src/api`: API klijent.
-- `server/lensos`: TypeScript API, autorizacija, validacija i transakcijski servisi.
-- `prisma/schema.prisma`: relacijski model; `prisma/migrations`: verzionirana migracija i DB ograničenja.
-- `scripts`: lokalna PostgreSQL baza i odvojeni browser testovi.
-- `docs`: arhitektura, API i backup/oporavak.
-
-Stari QuattroDrive kontroleri, ekrani, SQLite fajl i game Socket.IO ostaju u izvornom kodu radi očuvanja ranijih podataka. Aktivni web server ih ne učitava. `npm run legacy:server` je samo ručno pokretanje starog servera na istom portu; ne pokretati ga zajedno s LensOS API-jem. PostgreSQL nema automatski uvezene stare ili miješane demo podatke.
-
-## Brzo lokalno pokretanje na Windowsu
-
-Potreban je instaliran PostgreSQL u `C:\Program Files\PostgreSQL`. U folderu projekta:
-
-```powershell
+~~~powershell
+git clone https://github.com/Brega0302/Lens-Caffe-System.git
+cd Lens-Caffe-System
 npm ci
 npm run db:local
 npm run db:generate
 npm run db:migrate
 npm run seed:demo
 npm run dev:web
-```
+~~~
 
-Otvorite `http://127.0.0.1:5173`. API radi na `127.0.0.1:3001`; Vite prosljeđuje `/api` zahtjeve. Ako je port zauzet, naredba javlja grešku umjesto tihog prelaska na drugi port.
+Open http://127.0.0.1:5173. The API listens on 127.0.0.1:3001, and Vite proxies /api requests. Startup reports an occupied port instead of silently choosing another one.
 
-`db:local` stvara vlastiti PostgreSQL cluster u ignorisanom `.local/postgres` i koristi port 55432 samo na lokalnom računaru. Ne mijenja postojeću PostgreSQL instalaciju/baze. Generiše lozinku baze u `.local/postgres-password` i `.env`, bez prikazivanja u terminalu. `.env` se nikada ne prepisuje ako već postoji. Cluster nije automatski Windows servis: poslije restarta računara ponovo pokrenite `npm run db:local`.
+The db:local script creates an isolated cluster in the ignored .local/postgres directory on local port 55432. It does not change existing PostgreSQL installations or databases. Generated credentials are stored in .local/postgres-password and .env without printing them. An existing .env is never overwritten. The cluster is not installed as a Windows service; run npm run db:local again after restarting the computer.
 
-Seed ispisuje generisanu lozinku korisnika `lens-demo-owner` samo prilikom prvog kreiranja. Sačuvajte je. Ponavljanje seeda ne mijenja lozinku ni postojeće podatke. Za izbor vlastite lozinke od najmanje 12 znakova prije prvog seeda postavite `LENSOS_OWNER_PASSWORD` lokalno. U kodu nema podrazumijevane lozinke.
+The demo seed prints the generated password for lens-demo-owner only when first creating the account. Save that password. Re-running the seed does not change existing passwords or records. To choose your own initial password, set LENSOS_OWNER_PASSWORD locally before the first seed; it must have at least 12 characters. No default owner password is embedded in the source.
 
-## Odvajanje demo i stvarnog poslovanja
+## Demo, development and test environments
 
-Postoje tri odvojene baze: `lensos_demo`, `lensos_dev`, `lensos_test`. Lokalni `.env` bira demo, a aplikacija prikazuje žutu DEMO oznaku. Sve što unesete u toj sesiji ostaje u demo bazi.
+The local workflow separates lensos_demo, lensos_dev and lensos_test. The generated local .env selects demo mode, and the interface displays a yellow DEMO indicator. Entries made in that environment remain in the demo database.
 
-Za stvarnu praznu evidenciju podesite `DATABASE_URL` na vlastitu bazu, npr. `lensos_dev`, i `APP_MODE=production`, pa pokrenite:
+To start an empty database for your own records, set DATABASE_URL to your own database, such as lensos_dev, and APP_MODE=production, then run:
 
-```powershell
+~~~powershell
 npm run db:migrate
 npm run db:owner
 npm run dev:web
-```
+~~~
 
-`db:owner` stvara samo prvog vlasnika i ispisuje generisanu lozinku jednom. Demo seed je odbijen ako baza nema sufiks `_demo` ili je NODE_ENV=production. Ne koristi se za stvarnu bazu. Testovi odbijaju URL bez sufiksa `_test` i koriste nove sheme koje se na kraju brišu.
+The owner-provisioning command creates the first owner and prints the generated password once. Demo seeding is rejected unless the database name ends in _demo, and is also rejected when NODE_ENV=production. Tests require a database name ending in _test and create isolated schemas that are removed afterward.
 
-Za drugi PostgreSQL server kopirajte `.env.example` u `.env` i unesite vlastiti connection string. Lozinka u URL-u mora biti URL-enkodirana. `.env`, `.local`, dumpovi i baze su ignorisani u Gitu. Folder ovog projekta trenutno nema `.git`; historija i commitovi moraju biti inicijalizirani ili vraćeni iz originalnog repozitorija prije timskog rada.
+For an external PostgreSQL server, copy .env.example to .env and supply your connection string. URL-encode special characters in the password. Credentials, local clusters, database files and dumps are excluded from Git.
 
-## Varijable okruženja
+## Environment variables
 
-| Varijabla | Namjena |
+| Variable | Purpose |
 | --- | --- |
-| `DATABASE_URL` | PostgreSQL baza aktivne aplikacije |
-| `TEST_DATABASE_URL` | Posebna baza čije ime završava na `_test` |
-| `APP_MODE` | `demo` za `_demo` bazu, `production` za stvarnu evidenciju |
-| `PORT` | API port; podrazumijevano 3001 |
-| `LENSOS_CORS_ORIGINS` | Dozvoljene frontend adrese, razdvojene zarezom |
-| `LENSOS_OWNER_USERNAME` | Korisničko ime pri početnom kreiranju vlasnika |
-| `LENSOS_OWNER_PASSWORD` | Neobavezna lokalna početna lozinka; inače se generiše |
-| `PLAYWRIGHT_CHANNEL` | Browser za E2E; podrazumijevano instalirani `msedge` |
+| DATABASE_URL | Database used by the active application |
+| TEST_DATABASE_URL | Dedicated database whose name ends in _test |
+| APP_MODE | demo for the demo database; production for non-demo records |
+| PORT | API port; defaults to 3001 |
+| LENSOS_CORS_ORIGINS | Comma-separated allowed frontend origins |
+| LENSOS_OWNER_USERNAME | Username used for initial owner provisioning |
+| LENSOS_OWNER_PASSWORD | Optional local initial password; otherwise generated |
+| PLAYWRIGHT_CHANNEL | Browser used for E2E tests; defaults to installed msedge |
 
-Poslovni datumi su namjerno vezani za Europe/Sarajevo, bez zavisnosti od vremenske zone računara. Današnje prodaje dobijaju stvarno vrijeme; naknadno uneseni raniji datumi bilježe se u 12:00 po sarajevskom vremenu i zadržavaju stvarni `createdAt` za audit.
+Business dates follow Europe/Sarajevo regardless of the computer's time zone. Backdated sales use noon Sarajevo time while preserving their actual creation timestamp for the audit trail.
 
-## Poslovna pravila
+## Inventory and ledger rules
 
-- Kreiranje artikla počinje s nulom. Stanje se mijenja kroz nabavku ili korekciju uz obavezan razlog.
-- Nabavka čuva vlastite jedinične cijene, broj računa i stavke. Kataloška nabavna cijena prati najnoviji datum nabavke; stariji račun je ne prepisuje.
-- Prodaja čuva naziv i prodajnu cijenu kakvi su bili prilikom knjiženja. Aktivnost i dovoljna zaliha provjeravaju se na serveru.
-- Prodaja, stavke, smanjenje zalihe, kretanje, audit i ključ zahtjeva su jedna serializable transakcija, s ponavljanjem pri konkurentnom konfliktu.
-- Idempotency-Key štiti nabavke, prodaje i korekcije od dvostrukog knjiženja. Browser pamti isti ključ kroz gubitak odgovora i ponovno učitavanje.
-- Historija se ne briše. Artikli se deaktiviraju; jedinica mjere s historijom se ne mijenja.
-- Niske zalihe su aktivni artikli sa stanjem većim od nule i na/ispod minimuma. Nulta stanja se prikazuju zasebno. Upozorenja se računaju dinamički.
-- Dashboard prikazuje prihod, količine, najprodavanije artikle i zalihe. Ne prikazuje prihod kao dobit. Cijena nabavke se snima na prodajnoj stavci samo ako postoji nabavka; napredna računica dobiti pripada kasnijoj fazi.
+New items start with zero stock. Purchases increase warehouse stock; manual adjustments require a reason. Purchase records retain their original unit costs and invoice references. An older invoice does not overwrite a newer catalog purchase price.
 
-## Provjere
+Transfers reduce warehouse stock and increase café stock together. Sellable items appear in the ledger; cleaning supplies, glassware and other non-sellable materials do not contribute to sales revenue.
 
-```powershell
+- First shift: opening stock + first-shift transfers − handover count = quantity sold.
+- Second shift: handover count + second-shift transfers − closing count = quantity sold.
+- Closing stock carries forward into the next daily ledger.
+
+Every difference is treated as a sale. Check shortages, damage and entry mistakes before confirming a shift. This version does not have a separate café write-off workflow or reversal of a closed shift. Between physical counts, café quantities represent assigned stock rather than live remaining stock.
+
+Transfers and shift closing use serializable transactions, idempotency keys and ledger version checks. Stock movements, document lines, audit records and command results commit together or roll back together. Replaying the same request does not post it twice.
+
+Historical records are preserved. Items can be deactivated; a unit of measure with recorded history cannot be changed. Low-stock and out-of-stock indicators are computed from current inventory.
+
+Purchase-cost estimates use weighted averages. Transfers carry the estimated cost into the café, and each shift keeps its own cost snapshot. Daily ledgers retain their selling prices. Unknown costs remain unknown rather than producing an invented profit figure. Estimated gross profit excludes wages, rent, taxes and other operating expenses.
+
+## Validation
+
+~~~powershell
 npm run typecheck
 npm run test:unit
 npm run test:postgres
 npm run test:e2e
 npm run build
-```
+~~~
 
-`test:unit` obuhvata 50 postojećih/frontend regresijskih testova, uključujući očuvani legacy kod. `test:postgres` provjerava novu implementaciju na stvarnom PostgreSQL-u: negativnu zalihu, rollback, simultane prodaje, idempotenciju, cijene, audit, dozvole, decimalno zaokruživanje i sarajevske datume. Test stvara i uklanja zasebnu shemu u `_test` bazi.
+The unit/regression suite includes retained legacy modules. PostgreSQL integration tests cover transfers, both shifts, rollback, concurrent commands, idempotency, historical prices, permissions, rounding and business dates. They create and remove isolated schemas in the _test database.
 
-Playwright koristi instalirani Edge, posebne portove 3301/5175 i vlastitu shemu u `_test` bazi. Generiše privremenu lozinku i briše shemu poslije provjere. Za CI s Chromiumom instalirajte `npx playwright install chromium` i postavite `PLAYWRIGHT_CHANNEL=chromium`. Browser test provjerava prijavu → artikal → nabavka → prodaja → historija → mobilni prikaz. Screenshotovi su u `.local/screenshots`; izvještaj u `playwright-report`.
+Playwright uses installed Edge, separate ports 3301/5175 and its own test schema. It generates temporary credentials and removes the schema afterward. For Chromium in CI, run npx playwright install chromium and set PLAYWRIGHT_CHANNEL=chromium.
 
-## Pokretanje builda
+The browser flow covers login, inventory, purchasing, warehouse transfers, both shifts and mobile layout. Local screenshots are stored in .local/screenshots, and reports in playwright-report.
 
-```powershell
+## Run a production build
+
+~~~powershell
 npm run build
 $env:NODE_ENV='production'
 npm start
-```
+~~~
 
-Produkcijski server servira `dist` i API s istog origina. Za ovo treba stvarna baza i APP_MODE=production; demo baza je odbijena. Node server je vezan za 127.0.0.1; za udaljeni pristup postavite HTTPS reverse proxy ispred njega. Koristite zasebnu PostgreSQL aplikacijsku ulogu s minimalnim ovlastima i migracijsku ulogu za deploy. Lokalni cluster/korisnik iz `db:local` namijenjen je razvoju.
+The server serves dist and the API from the same origin. Production requires a non-demo database and APP_MODE=production; demo databases are rejected. The Node server binds to 127.0.0.1. Remote deployment requires an HTTPS reverse proxy, a restricted application database role, a separate migration role and an operational backup plan. The local cluster and role created by db:local are intended for development.
 
-## Ograničenja Phase 1
+## In progress and limitations
 
-QR naručivanje, recepti, otpis, popis, rasporedi, administracija zaposlenika, rashodi, grafikoni i izvozi nisu dio ove faze. Ne postoji online naplata. Upozorenja nemaju inbox/označavanje pročitanim. Prodaje nemaju ekran za storniranje ili naknadne izmjene; finansijski dokumenti su nepromjenjivi kroz API. Proširenje ovlaštenih storna zahtijeva zaseban audited reversal tok.
+Planned work includes dedicated waiter permissions, café write-offs, stocktaking, recipes, employee administration, schedules, expenses, reporting/exports and deployment hardening. QR ordering and online payments are not implemented in this system.
 
-Lista artikala/nabavki i historija ograničene su na 1.000 zapisa, a prodaja na 5.000 po periodu uz upozorenje da se period suzi. Dashboard koristi pune dnevne podatke. Za veći obim treba paginacija i serverska izvještajna agregacija. Sesije su u sessionStorage; produkcijska zaštita zahtijeva HTTPS i kontrolu XSS-a. Login rate limiting je po procesu; za više instanci treba zajednički store. Nije provedeno opterećenje, nezavisni sigurnosni pregled niti javni deployment.
+Closed financial documents cannot be edited or reversed through the current interface. A future reversal workflow must preserve the audit trail. Alerts do not have an inbox or read/unread state.
 
-Arhitektura i model: [docs/phase-1-architecture.md](docs/phase-1-architecture.md). API i backup: [docs/operations.md](docs/operations.md). Rezultati provjera i preostala ograničenja: [docs/phase-1-status.md](docs/phase-1-status.md).
+Inventory, purchase and history lists are limited to 1,000 records; sales are limited to 5,000 records per period, with a prompt to narrow the range. Larger datasets need pagination and server-side report aggregation.
+
+Sessions use browser sessionStorage. Remote deployment requires HTTPS and protection against script injection. Login rate limits are per process; multiple instances require a shared store. Load testing, an independent security review and public application deployment have not been completed.
+
+## Further documentation
+
+- [Architecture and data model](docs/phase-1-architecture.md)
+- [Warehouse and two-shift ledger](docs/magacin-knjiga-pazara.md)
+- [API, migrations, backup and recovery](docs/operations.md)
+- [Historical Phase 1 validation report](docs/phase-1-status.md)
